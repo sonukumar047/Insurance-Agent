@@ -2,7 +2,8 @@ streamlit
 langchain
 langchain-community
 langchain-groq
+langchain-huggingface
 huggingface_hub[hf_xet]
 faiss-cpu
-python-dotenv
 pymupdf
+python-dotenv
