@@ -57,7 +57,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 
 4. Create .env File
-# .env
+ # .env
 GROQ_API_KEY=your_groq_api_key
 
 ▶️ Run the Application
@@ -68,7 +68,7 @@ streamlit run ui_streamlit.py
 💻 Option 2: Use Command-Line Interface (CLI)
 python main.py
 
-##📦 Requirements
+# 📦 Requirements
 
 streamlit
 langchain
