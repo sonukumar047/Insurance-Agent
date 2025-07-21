@@ -28,9 +28,10 @@ Insurance-Agent/
 ├── ui_streamlit.py          # 📱 Streamlit web UI
 ├── requirements.txt         # Python dependencies
 └── README.md
+```
 
 
-🚀 Features
+## 🚀 Features
 ✅ Upload insurance underwriting PDFs
 ✅ RAG using FAISS + HuggingFace Embeddings
 ✅ Uses blazing fast Groq LLMs (LLaMA3, Gemma, Mixtral*)
@@ -38,7 +39,7 @@ Insurance-Agent/
 ✅ CLI and Web versions available
 ✅ Returns both answers and source references
 
-🔧 Setup Instructions
+## 🔧 Setup Instructions
 1. Clone the Repository
 
 git clone https://github.com/yourusername/insurance-rag-agent.git
@@ -67,7 +68,7 @@ streamlit run ui_streamlit.py
 💻 Option 2: Use Command-Line Interface (CLI)
 python main.py
 
-📦 Requirements
+##📦 Requirements
 streamlit
 langchain
 langchain-community
