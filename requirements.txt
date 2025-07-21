@@ -1,9 +1,7 @@
+streamlit
 langchain
 langchain-community
+langchain-groq
+huggingface_hub[hf_xet]
 faiss-cpu
-pymupdf
-tiktoken
 python-dotenv
-pip install huggingface_hub[hf_xet]
-ping huggingface.co
-ping cas-bridge.xethub.hf.co
