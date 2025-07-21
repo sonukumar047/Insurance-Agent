@@ -5,3 +5,4 @@ langchain-groq
 huggingface_hub[hf_xet]
 faiss-cpu
 python-dotenv
+pymupdf
