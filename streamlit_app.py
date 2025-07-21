@@ -63,10 +63,19 @@ with st.sidebar:
     ])
 
     if st.button("🔄 Load Agent"):
+        
         if uploaded_pdf:
+            # Ensure 'data/' folder exists
+            os.makedirs("data", exist_ok=True)
+            # Save the uploaded PDF
             pdf_path = os.path.join("data", uploaded_pdf.name)
             with open(pdf_path, "wb") as f:
                 f.write(uploaded_pdf.getvalue())
+
+    with st.spinner("Processing PDF and creating vectorstore..."):
+        load_pdf_and_create_vectors(pdf_path)
+        st.success("✅ PDF processed and vectorstore created!")
+
 
             with st.spinner("Processing PDF and creating vectorstore..."):
                 load_pdf_and_create_vectors(pdf_path)
