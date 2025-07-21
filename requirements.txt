@@ -7,3 +7,4 @@ huggingface_hub[hf_xet]
 faiss-cpu
 pymupdf
 python-dotenv
+sentence-transformers
