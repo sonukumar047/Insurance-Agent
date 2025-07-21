@@ -20,7 +20,10 @@ with st.sidebar:
 
     model_name = st.selectbox("Select Model", [
         "llama3-70b-8192",
-        "gemma-7b-it"
+        "gemma2-9b-it",
+        "qwen/qwen3-32b",
+        "deepseek-r1-distill-llama-70b",
+        "compound-beta"
     ])
 
     if st.button("🔄 Load Agent"):
