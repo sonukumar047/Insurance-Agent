@@ -69,6 +69,7 @@ streamlit run ui_streamlit.py
 python main.py
 
 ##📦 Requirements
+
 streamlit
 langchain
 langchain-community
