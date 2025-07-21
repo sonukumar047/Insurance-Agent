@@ -7,27 +7,6 @@ from langchain.chains import RetrievalQA
 
 load_dotenv()
 
-# def load_agent(vector_store_path="vectorstore"):
-#     # Load vector store
-#     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-#     db = FAISS.load_local(vector_store_path, embeddings, allow_dangerous_deserialization=True)
-#     retriever = db.as_retriever()
-
-#     # Load LLM from Groq
-#     llm = ChatGroq(
-#         api_key=os.getenv("GROQ_API_KEY"),
-#         model_name="llama3-70b-8192"  # Other options: llama3-70b, gemma-7b-it
-#     )
-
-#     # Retrieval-Augmented QA chain
-#     qa_chain = RetrievalQA.from_chain_type(
-#         llm=llm,
-#         retriever=retriever,
-#         return_source_documents=True
-#     )
-#     return qa_chain
-
-
 def load_agent(vector_store_path="vectorstore", model_name="llama3-70b-8192"):
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     db = FAISS.load_local(vector_store_path, embeddings, allow_dangerous_deserialization=True)
