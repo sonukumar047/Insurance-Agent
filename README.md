@@ -42,7 +42,7 @@ Insurance-Agent/
 ## 🔧 Setup Instructions
 1. Clone the Repository
 
-git clone https://github.com/yourusername/insurance-rag-agent.git
+git clone https://github.com/sonukumar047/Insurance-Agent.git
 cd insurance-rag-agent
 
  Create and Activate a Virtual Environment
