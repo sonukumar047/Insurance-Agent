@@ -232,8 +232,8 @@ with st.sidebar:
                 # Ensure the 'data/' folder exists
                 os.makedirs("data", exist_ok=True)
                 
-                # Save uploaded PDF to 'data/' directory
-                pdf_path = os.path.join("data", uploaded_file.name)
+                # Save uploaded PDF to 'data/' directory with normalized path
+                pdf_path = os.path.normpath(os.path.join("data", uploaded_file.name))
                 with open(pdf_path, "wb") as f:
                     f.write(uploaded_file.getvalue())
                 
@@ -307,8 +307,10 @@ with st.sidebar:
                 status_text.text("📄 Processing PDF documents...")
                 progress_bar.progress(25)
                 
-                # Get all PDF paths
-                pdf_paths = [pdf['path'] for pdf in st.session_state.uploaded_pdfs]
+                # Get all PDF paths (ensure flat list of strings)
+                pdf_paths = [pdf['path'] for pdf in st.session_state.uploaded_pdfs if isinstance(pdf['path'], str)]
+                if not pdf_paths:
+                    raise ValueError("No valid PDF paths found in session state.")
                 
                 # Create vectorstore with all PDFs
                 load_pdf_and_create_vectors(pdf_paths)
@@ -325,10 +327,12 @@ with st.sidebar:
                 status_text.text("🎉 Ready to assist!")
                 
                 st.balloons()
-                st.success(f"🎉 Agent loaded with {len(st.session_state.uploaded_pdfs)} PDF(s)!")
+                st.success(f"🎉 Agent loaded with {len(pdf_paths)} PDF(s)!")
                 
+            except ValueError as ve:
+                st.error(f"❌ Validation error: {str(ve)}")
             except Exception as e:
-                st.error(f"❌ Error processing documents: {str(e)}")
+                st.error(f"❌ Error processing documents: {str(e)}. Check if paths are valid strings.")
         else:
             st.error("⚠️ Please upload at least one PDF first.")
     
@@ -337,8 +341,10 @@ with st.sidebar:
         if st.button("➕ Update Knowledge Base", use_container_width=True, help="Add new PDFs to existing knowledge base"):
             try:
                 with st.spinner("🔄 Updating knowledge base..."):
-                    # Get all PDF paths
-                    pdf_paths = [pdf['path'] for pdf in st.session_state.uploaded_pdfs]
+                    # Get all PDF paths (ensure flat list of strings)
+                    pdf_paths = [pdf['path'] for pdf in st.session_state.uploaded_pdfs if isinstance(pdf['path'], str)]
+                    if not pdf_paths:
+                        raise ValueError("No valid PDF paths found in session state.")
                     
                     # Recreate vectorstore with all PDFs
                     load_pdf_and_create_vectors(pdf_paths)
@@ -348,8 +354,10 @@ with st.sidebar:
                     
                     st.success("✅ Knowledge base updated successfully!")
                     
+            except ValueError as ve:
+                st.error(f"❌ Validation error: {str(ve)}")
             except Exception as e:
-                st.error(f"❌ Error updating knowledge base: {str(e)}")
+                st.error(f"❌ Error updating knowledge base: {str(e)}. Check if paths are valid strings.")
     
     # System status
     st.markdown("### 📊 System Status")
@@ -497,7 +505,6 @@ else:
 # Footer
 st.markdown("""
 <div style="text-align: center; padding: 20px; margin-top: 50px; color: #666;">
-    <p>Built with ❤️ using Streamlit | Smart Multi-PDF RAG Assistant v3.2</p>
+    <p>Built with ❤️ using Streamlit | Smart Multi-PDF RAG Assistant v3.3</p>
 </div>
 """, unsafe_allow_html=True)
-
