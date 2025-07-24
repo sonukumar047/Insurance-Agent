@@ -1,6 +1,6 @@
 import streamlit as st
-from app.retriever import load_pdf_and_create_vectors
-from app.agent import load_agent
+from app.with_ollama_retriever import load_pdf_and_create_vectors
+from app.with_ollama_agent import load_agent
 import os
 import shutil
 
@@ -66,16 +66,6 @@ st.markdown("""
     }
     
     /* PDF file display */
-    .pdf-file {
-        background: rgba(255,255,255,0.1);
-        padding: 10px;
-        border-radius: 8px;
-        margin: 5px 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
     .pdf-count {
         background: linear-gradient(90deg, #56CCF2 0%, #2F80ED 100%);
         color: white;
@@ -84,6 +74,18 @@ st.markdown("""
         font-weight: bold;
         margin: 10px 0;
         text-align: center;
+    }
+    
+    /* Provider indicator */
+    .provider-indicator {
+        background: linear-gradient(90deg, #FF6B6B 0%, #FF8E53 100%);
+        color: white;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: bold;
+        margin: 10px 0;
+        text-align: center;
+        font-size: 0.9em;
     }
     
     /* Button styling */
@@ -280,19 +282,64 @@ with st.sidebar:
             else:
                 st.error("❌ Error occurred while removing PDFs")
     
-    # Model selection
-    st.markdown("### 🧠 AI Model Selection")
-    model_name = st.selectbox(
-        "Choose AI Model", 
-        [
-            "llama3-70b-8192",
-            "gemma2-9b-it", 
-            "qwen/qwen3-32b",
-            "deepseek-r1-distill-llama-70b",
-            "compound-beta"
-        ],
-        help="Select the AI model for processing your queries"
+    # AI Provider Selection
+    st.markdown("### 🤖 AI Provider Selection")
+    
+    provider = st.radio(
+        "Choose AI Provider:",
+        ["🚀 Groq (Cloud)", "🏠 Ollama (Local)"],
+        help="Select between cloud-based Groq models or local Ollama models"
     )
+    
+    # Display current provider
+    provider_name = "Groq" if "Groq" in provider else "Ollama"
+    st.markdown(f"""
+    <div class="provider-indicator">
+        📡 Using: {provider_name}
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Model selection based on provider
+    st.markdown("### 🧠 AI Model Selection")
+    
+    if "Groq" in provider:
+        model_name = st.selectbox(
+            "Choose Groq Model", 
+            [
+                "llama3-70b-8192",
+                "gemma2-9b-it", 
+                "qwen/qwen-2.5-72b-instruct",
+                "deepseek-r1-distill-llama-70b",
+                "llama-3.1-70b-versatile",
+                "mixtral-8x7b-32768"
+            ],
+            help="Select the Groq model for processing your queries"
+        )
+        model_provider = "groq"
+    else:
+        model_name = st.selectbox(
+            "Choose Ollama Model", 
+            [
+                "llama3.2:3b",
+                "llama3.1:8b",
+                "gemma2:9b",
+                "qwen2.5:7b",
+                "mistral:7b",
+                "codellama:7b",
+                "phi3:3.8b",
+                "neural-chat:7b"
+            ],
+            help="Select the Ollama model (make sure it's installed locally)"
+        )
+        model_provider = "ollama"
+        
+        # Ollama connection settings
+        st.markdown("**Ollama Settings:**")
+        ollama_base_url = st.text_input(
+            "Ollama Base URL:", 
+            value="http://localhost:11434",
+            help="URL where Ollama is running"
+        )
     
     # Load agent button
     st.markdown("### 🚀 Initialize System")
@@ -316,19 +363,32 @@ with st.sidebar:
                 progress_bar.progress(60)
                 
                 # Loading agent
-                status_text.text("🤖 Loading AI Agent...")
+                status_text.text(f"🤖 Loading {provider_name} Agent...")
                 progress_bar.progress(80)
-                st.session_state.agent = load_agent(model_name=model_name)
+                
+                # Load agent with provider-specific parameters
+                if model_provider == "groq":
+                    st.session_state.agent = load_agent(
+                        model_name=model_name, 
+                        provider="groq"
+                    )
+                else:
+                    st.session_state.agent = load_agent(
+                        model_name=model_name, 
+                        provider="ollama",
+                        ollama_base_url=ollama_base_url
+                    )
                 
                 # Complete
                 progress_bar.progress(100)
                 status_text.text("🎉 Ready to assist!")
                 
                 st.balloons()
-                st.success(f"🎉 Agent loaded with {len(st.session_state.uploaded_pdfs)} PDF(s)!")
+                st.success(f"🎉 {provider_name} Agent loaded with {len(st.session_state.uploaded_pdfs)} PDF(s)!")
                 
             except Exception as e:
                 st.error(f"❌ Error processing documents: {str(e)}")
+                print(f"Detailed error: {e}")
         else:
             st.error("⚠️ Please upload at least one PDF first.")
     
@@ -344,7 +404,17 @@ with st.sidebar:
                     load_pdf_and_create_vectors(pdf_paths)
                     
                     # Reload agent with updated vectorstore
-                    st.session_state.agent = load_agent(model_name=model_name)
+                    if model_provider == "groq":
+                        st.session_state.agent = load_agent(
+                            model_name=model_name, 
+                            provider="groq"
+                        )
+                    else:
+                        st.session_state.agent = load_agent(
+                            model_name=model_name, 
+                            provider="ollama",
+                            ollama_base_url=ollama_base_url
+                        )
                     
                     st.success("✅ Knowledge base updated successfully!")
                     
@@ -356,6 +426,8 @@ with st.sidebar:
     if "agent" in st.session_state:
         st.success("🟢 Agent: Active")
         st.info(f"📚 Knowledge Base: {len(st.session_state.uploaded_pdfs)} document(s)")
+        st.info(f"🤖 Provider: {provider_name}")
+        st.info(f"🧠 Model: {model_name}")
     else:
         st.info("🔴 Agent: Not Loaded")
         if st.session_state.uploaded_pdfs:
@@ -480,16 +552,17 @@ else:
         <div style="text-align: left; max-width: 500px; margin: 0 auto;">
             <p>📁 <strong>Step 1:</strong> Upload one or multiple PDF documents</p>
             <p>📚 <strong>Step 2:</strong> Review your uploaded documents list</p>
-            <p>🧠 <strong>Step 3:</strong> Select an AI model</p>
-            <p>🔄 <strong>Step 4:</strong> Click 'Process Documents & Load Agent'</p>
-            <p>💬 <strong>Step 5:</strong> Ask questions by pressing Enter!</p>
+            <p>🤖 <strong>Step 3:</strong> Choose AI Provider (Groq or Ollama)</p>
+            <p>🧠 <strong>Step 4:</strong> Select an AI model</p>
+            <p>🔄 <strong>Step 5:</strong> Click 'Process Documents & Load Agent'</p>
+            <p>💬 <strong>Step 6:</strong> Ask questions by pressing Enter!</p>
         </div>
         <div style="margin-top: 30px; padding: 20px; background: rgba(255,255,255,0.1); border-radius: 10px;">
             <h4>✨ Features:</h4>
             <p>• Upload multiple PDFs at once</p>
+            <p>• Choose between Groq (cloud) and Ollama (local)</p>
+            <p>• Switch between different AI models</p>
             <p>• Search across all documents simultaneously</p>
-            <p>• Add or remove documents dynamically</p>
-            <p>• Press Enter to submit questions instantly</p>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -497,7 +570,6 @@ else:
 # Footer
 st.markdown("""
 <div style="text-align: center; padding: 20px; margin-top: 50px; color: #666;">
-    <p>Built with ❤️ using Streamlit | Smart Multi-PDF RAG Assistant v3.2</p>
+    <p>Built with ❤️ using Streamlit | Smart Multi-PDF RAG Assistant v4.0</p>
 </div>
 """, unsafe_allow_html=True)
-
