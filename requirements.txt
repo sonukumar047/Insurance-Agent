@@ -10,3 +10,5 @@ python-dotenv
 sentence-transformers
 langchain-ollama
 
+transformers
+torch

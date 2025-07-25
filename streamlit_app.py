@@ -66,16 +66,6 @@ st.markdown("""
     }
     
     /* PDF file display */
-    .pdf-file {
-        background: rgba(255,255,255,0.1);
-        padding: 10px;
-        border-radius: 8px;
-        margin: 5px 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
     .pdf-count {
         background: linear-gradient(90deg, #56CCF2 0%, #2F80ED 100%);
         color: white;
@@ -124,6 +114,22 @@ if "uploaded_pdfs" not in st.session_state:
 if "vectorstore_created" not in st.session_state:
     st.session_state.vectorstore_created = False
 
+# Function to ensure files exist
+def ensure_files_exist():
+    """Ensure all uploaded files exist on disk before processing"""
+    valid_files = []
+    
+    for pdf_info in st.session_state.uploaded_pdfs:
+        pdf_path = pdf_info['path']
+        
+        if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+            valid_files.append(pdf_info)
+            print(f"✅ Validated file: {pdf_path}")
+        else:
+            print(f"❌ File missing or empty: {pdf_path}")
+    
+    return valid_files
+
 # Function to clear all PDFs and cleanup
 def clear_all_pdfs():
     """Function to properly clear all PDFs and cleanup resources"""
@@ -148,7 +154,7 @@ def clear_all_pdfs():
         # Remove data directory if empty
         if os.path.exists("data"):
             try:
-                if not os.listdir("data"):  # If directory is empty
+                if not os.listdir("data"):
                     shutil.rmtree("data")
                     print("Empty data directory removed")
             except OSError as e:
@@ -217,7 +223,6 @@ with st.sidebar:
     # File upload section
     st.markdown("### 📁 Document Management")
     
-    # Multiple file uploader
     uploaded_files = st.file_uploader(
         "Choose PDF documents", 
         type="pdf",
@@ -225,30 +230,41 @@ with st.sidebar:
         help="Upload multiple PDF files to create a comprehensive knowledge base"
     )
     
-    # Process uploaded files
+    # Process uploaded files with enhanced error handling
     if uploaded_files:
         for uploaded_file in uploaded_files:
             if uploaded_file.name not in [pdf['name'] for pdf in st.session_state.uploaded_pdfs]:
-                # Ensure the 'data/' folder exists
-                os.makedirs("data", exist_ok=True)
-                
-                # Save uploaded PDF to 'data/' directory with normalized path
-                pdf_path = os.path.normpath(os.path.join("data", uploaded_file.name))
-                with open(pdf_path, "wb") as f:
-                    f.write(uploaded_file.getvalue())
-                
-                # Add to session state
-                st.session_state.uploaded_pdfs.append({
-                    'name': uploaded_file.name,
-                    'path': pdf_path,
-                    'size': len(uploaded_file.getvalue())
-                })
-                
-                # Mark vectorstore as outdated when new files are added
-                if st.session_state.vectorstore_created:
-                    st.session_state.vectorstore_created = False
-                    if "agent" in st.session_state:
-                        del st.session_state.agent
+                try:
+                    # Ensure the 'data/' folder exists
+                    os.makedirs("data", exist_ok=True)
+                    
+                    # Save uploaded PDF with explicit flushing
+                    pdf_path = os.path.normpath(os.path.join("data", uploaded_file.name))
+                    with open(pdf_path, "wb") as f:
+                        f.write(uploaded_file.getvalue())
+                        f.flush()  # Force write to disk
+                        os.fsync(f.fileno())  # Ensure OS writes to storage
+                    
+                    # Verify file was written correctly
+                    if os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+                        st.session_state.uploaded_pdfs.append({
+                            'name': uploaded_file.name,
+                            'path': pdf_path,
+                            'size': len(uploaded_file.getvalue())
+                        })
+                        print(f"✅ Successfully saved: {pdf_path}")
+                        
+                        # Mark vectorstore as outdated when new files are added
+                        if st.session_state.vectorstore_created:
+                            st.session_state.vectorstore_created = False
+                            if "agent" in st.session_state:
+                                del st.session_state.agent
+                    else:
+                        st.error(f"❌ Failed to save {uploaded_file.name}")
+                        
+                except Exception as e:
+                    st.error(f"❌ Error saving {uploaded_file.name}: {str(e)}")
+                    print(f"❌ Error details: {e}")
     
     # Display uploaded PDFs
     if st.session_state.uploaded_pdfs:
@@ -262,7 +278,10 @@ with st.sidebar:
         for i, pdf in enumerate(st.session_state.uploaded_pdfs):
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.markdown(f"📄 {pdf['name']}")
+                # Show file status
+                file_exists = os.path.exists(pdf['path'])
+                status_icon = "✅" if file_exists else "❌"
+                st.markdown(f"{status_icon} {pdf['name']}")
                 st.caption(f"Size: {pdf['size']/1024:.1f} KB")
             with col2:
                 if st.button("🗑️", key=f"delete_{i}", help="Remove this PDF"):
@@ -287,18 +306,26 @@ with st.sidebar:
         [
             "llama3-70b-8192",
             "gemma2-9b-it", 
-            "qwen/qwen3-32b",
+            "qwen/qwen-2.5-72b-instruct",
             "deepseek-r1-distill-llama-70b",
-            "compound-beta"
+            "llama-3.1-70b-versatile"
         ],
         help="Select the AI model for processing your queries"
     )
     
-    # Load agent button
+    # Load agent button with enhanced validation
     st.markdown("### 🚀 Initialize System")
     if st.button("🔄 Process Documents & Load Agent", use_container_width=True):
         if st.session_state.uploaded_pdfs:
             try:
+                # Validate files exist before processing
+                valid_files = ensure_files_exist()
+                
+                if not valid_files:
+                    st.error("❌ No valid PDF files found. Please re-upload your documents.")
+                    st.session_state.uploaded_pdfs = []  # Clear invalid entries
+                    st.rerun()
+                
                 # Create progress bar
                 progress_bar = st.progress(0)
                 status_text = st.empty()
@@ -307,10 +334,13 @@ with st.sidebar:
                 status_text.text("📄 Processing PDF documents...")
                 progress_bar.progress(25)
                 
-                # Get all PDF paths (ensure flat list of strings)
-                pdf_paths = [pdf['path'] for pdf in st.session_state.uploaded_pdfs if isinstance(pdf['path'], str)]
+                # Get valid PDF paths
+                pdf_paths = [pdf['path'] for pdf in valid_files if os.path.exists(pdf['path'])]
+                
                 if not pdf_paths:
-                    raise ValueError("No valid PDF paths found in session state.")
+                    raise ValueError("No accessible PDF files found after validation")
+                
+                print(f"🔍 Processing {len(pdf_paths)} PDF files: {pdf_paths}")
                 
                 # Create vectorstore with all PDFs
                 load_pdf_and_create_vectors(pdf_paths)
@@ -329,20 +359,30 @@ with st.sidebar:
                 st.balloons()
                 st.success(f"🎉 Agent loaded with {len(pdf_paths)} PDF(s)!")
                 
-            except ValueError as ve:
-                st.error(f"❌ Validation error: {str(ve)}")
             except Exception as e:
-                st.error(f"❌ Error processing documents: {str(e)}. Check if paths are valid strings.")
+                st.error(f"❌ Error processing documents: {str(e)}")
+                print(f"🔍 Detailed error: {e}")
+                
+                # Add debug information
+                st.error("Debug Information:")
+                st.code(f"""
+Current directory: {os.getcwd()}
+Data directory exists: {os.path.exists('data')}
+Data directory contents: {os.listdir('data') if os.path.exists('data') else 'N/A'}
+Session PDFs: {len(st.session_state.uploaded_pdfs)}
+Valid files found: {len(ensure_files_exist())}
+                """)
         else:
             st.error("⚠️ Please upload at least one PDF first.")
     
-    # Add more PDFs to existing vectorstore
+    # Update knowledge base button
     if st.session_state.vectorstore_created and st.session_state.uploaded_pdfs:
         if st.button("➕ Update Knowledge Base", use_container_width=True, help="Add new PDFs to existing knowledge base"):
             try:
                 with st.spinner("🔄 Updating knowledge base..."):
-                    # Get all PDF paths (ensure flat list of strings)
-                    pdf_paths = [pdf['path'] for pdf in st.session_state.uploaded_pdfs if isinstance(pdf['path'], str)]
+                    valid_files = ensure_files_exist()
+                    pdf_paths = [pdf['path'] for pdf in valid_files if os.path.exists(pdf['path'])]
+                    
                     if not pdf_paths:
                         raise ValueError("No valid PDF paths found in session state.")
                     
@@ -354,20 +394,42 @@ with st.sidebar:
                     
                     st.success("✅ Knowledge base updated successfully!")
                     
-            except ValueError as ve:
-                st.error(f"❌ Validation error: {str(ve)}")
             except Exception as e:
-                st.error(f"❌ Error updating knowledge base: {str(e)}. Check if paths are valid strings.")
+                st.error(f"❌ Error updating knowledge base: {str(e)}")
     
     # System status
     st.markdown("### 📊 System Status")
     if "agent" in st.session_state:
         st.success("🟢 Agent: Active")
         st.info(f"📚 Knowledge Base: {len(st.session_state.uploaded_pdfs)} document(s)")
+        st.info(f"🧠 Model: {model_name}")
     else:
         st.info("🔴 Agent: Not Loaded")
         if st.session_state.uploaded_pdfs:
             st.warning(f"📚 {len(st.session_state.uploaded_pdfs)} PDF(s) ready for processing")
+
+    # Debug mode (remove in production)
+    if st.checkbox("🔍 Debug Mode"):
+        st.markdown("### Debug Information")
+        st.write(f"**Current working directory:** {os.getcwd()}")
+        st.write(f"**Files in root:** {os.listdir('.')}")
+        
+        if os.path.exists('data'):
+            data_files = os.listdir('data')
+            st.write(f"**Files in data directory:** {data_files}")
+            
+            for file in data_files:
+                file_path = os.path.join('data', file)
+                size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+                st.write(f"- {file}: {size} bytes")
+        else:
+            st.write("**Data directory does not exist**")
+        
+        st.write(f"**Session uploaded PDFs:** {len(st.session_state.uploaded_pdfs)}")
+        for pdf in st.session_state.uploaded_pdfs:
+            exists = os.path.exists(pdf['path'])
+            size = os.path.getsize(pdf['path']) if exists else 0
+            st.write(f"- {pdf['name']}: {'✅' if exists else '❌'} ({size} bytes)")
 
 # --- Enhanced Main Chat Interface ---
 if "agent" in st.session_state:
@@ -505,6 +567,6 @@ else:
 # Footer
 st.markdown("""
 <div style="text-align: center; padding: 20px; margin-top: 50px; color: #666;">
-    <p>Built with ❤️ using Streamlit | Smart Multi-PDF RAG Assistant v3.3</p>
+    <p>Built with ❤️ using Streamlit | Smart Multi-PDF RAG Assistant v4.0</p>
 </div>
 """, unsafe_allow_html=True)
