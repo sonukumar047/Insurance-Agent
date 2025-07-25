@@ -9,6 +9,7 @@ pymupdf
 python-dotenv
 sentence-transformers
 langchain-ollama
-
+pypdf
+PyPDF2
 transformers
 torch
